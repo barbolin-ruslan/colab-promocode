@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>JET Collaborations — Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0F172A; --panel:#1E293B; --panel2:#334155; --line:#475569;
+    --text:#E2E8F0; --muted:#94A3B8; --accent:#38BDF8; --green:#22C55E;
+    --orange:#F59E0B; --red:#EF4444; --purple:#A78BFA; --pink:#EC4899;
+  }
+  *{box-sizing:border-box; font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;}
+  body{margin:0; background:var(--bg); color:var(--text); padding:24px; min-height:100vh;}
+  .header{display:flex; justify-content:space-between; align-items:flex-start; gap:24px; flex-wrap:wrap; margin-bottom:12px;}
+  .header-left h1{margin:0 0 4px; font-size:24px; letter-spacing:-0.5px;}
+  .header-left h1 .accent{color:var(--accent);}
+  .sub{color:var(--muted); font-size:13px;}
+  .lang-switch{display:flex; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:99px; padding:4px;}
+  .lang-switch button{background:transparent; border:none; color:var(--muted); font-size:11px; font-weight:600; padding:6px 12px; border-radius:99px; cursor:pointer; letter-spacing:.5px; transition:all .15s;}
+  .lang-switch button:hover{color:var(--text);}
+  .lang-switch button.active{background:var(--accent); color:#0F172A;}
+  .sources{color:var(--muted); font-size:11px; margin-bottom:24px;}
+  .sources b{color:var(--text);}
+  .row{display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:14px; margin-bottom:24px;}
+  .kpi{background:var(--panel); border-radius:12px; padding:16px 18px; border:1px solid var(--line); position:relative; overflow:hidden;}
+  .kpi:before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--accent);}
+  .kpi.green:before{background:var(--green);}
+  .kpi.orange:before{background:var(--orange);}
+  .kpi.purple:before{background:var(--purple);}
+  .kpi.red:before{background:var(--red);}
+  .kpi.pink:before{background:var(--pink);}
+  .kpi .lbl{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;}
+  .kpi .val{font-size:24px; font-weight:700; margin-top:6px;}
+  .grid{display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:24px;}
+  @media (max-width:1000px){.grid{grid-template-columns:1fr;}}
+  .panel{background:var(--panel); border-radius:12px; padding:18px 20px; border:1px solid var(--line);}
+  .panel h3{margin:0 0 14px; font-size:14px; display:flex; justify-content:space-between; align-items:center; gap:10px;}
+  .panel h3 .pill{font-size:10px; background:var(--panel2); padding:3px 8px; border-radius:99px; color:var(--muted); font-weight:500;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{text-align:left; padding:10px 8px; color:var(--muted); font-weight:500; border-bottom:1px solid var(--line); text-transform:uppercase; font-size:10px; letter-spacing:.5px;}
+  th.num{text-align:right;}
+  td{padding:11px 8px; border-bottom:1px solid #2A3A52; vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr.totals td{font-weight:700; color:var(--text); background:#13243C;}
+  td.num{text-align:right; font-variant-numeric:tabular-nums;}
+  td.code{font-weight:700; color:var(--accent);}
+  td.pos{color:var(--green); font-weight:600;}
+  td.neg{color:var(--red); font-weight:600;}
+  .bar{height:6px; background:var(--panel2); border-radius:3px; overflow:hidden; margin-top:4px;}
+  .bar > div{height:100%; border-radius:3px;}
+  .filters{display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; align-items:center;}
+  .filters .label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-right:4px;}
+  .chip{background:var(--panel); border:1px solid var(--line); padding:6px 14px; border-radius:99px; font-size:12px; cursor:pointer; transition:all .15s;}
+  .chip:hover{border-color:var(--accent);}
+  .chip.active{background:var(--accent); border-color:var(--accent); color:#0F172A; font-weight:600;}
+  .chart-wrap{position:relative; height:280px;}
+  .insights{background:linear-gradient(135deg, #1E293B 0%, #243447 100%); border-radius:12px; padding:18px 20px; border:1px solid var(--line); margin-bottom:24px;}
+  .insights h3{margin:0 0 14px; font-size:14px;}
+  .insights ul{margin:0; padding-left:20px; line-height:1.7; font-size:13px;}
+  .insights li{margin-bottom:4px;}
+  .insights .tag{display:inline-block; font-size:10px; padding:2px 7px; border-radius:99px; margin-right:6px; font-weight:600;}
+  .insights .tag.win{background:#14532D; color:#86EFAC;}
+  .insights .tag.warn{background:#7C2D12; color:#FED7AA;}
+  .insights .tag.ok{background:#1E3A8A; color:#BFDBFE;}
+  .insights .tag.info{background:#3F3F46; color:#D4D4D8;}
+  .assumptions{display:flex; gap:14px; margin-bottom:14px; flex-wrap:wrap;}
+  .assumption{background:var(--panel); border:1px dashed var(--line); padding:8px 14px; border-radius:8px; font-size:11px; color:var(--muted);}
+  .assumption b{color:var(--text); font-size:14px; margin-right:6px;}
+  .footer{color:var(--muted); font-size:11px; text-align:center; margin-top:20px; line-height:1.6;}
+  .pending-section{margin-bottom:24px;}
+  .pending-section .head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
+  .pending-section h2{margin:0; font-size:16px; color:var(--text);}
+  .pending-section h2 .muted{color:var(--muted); font-size:12px; font-weight:400; margin-left:8px;}
+  .pending-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px;}
+  .pcard{background:repeating-linear-gradient(45deg, #1E293B, #1E293B 8px, #243447 8px, #243447 16px); border:1px dashed var(--line); border-radius:10px; padding:14px 16px; position:relative; opacity:.88;}
+  .pcard:hover{opacity:1; border-color:var(--accent);}
+  .pcard .status{position:absolute; top:10px; right:10px; width:8px; height:8px; border-radius:50%;}
+  .pcard .status.red{background:#EF4444; box-shadow:0 0 6px #EF4444;}
+  .pcard .status.yellow{background:#F59E0B; box-shadow:0 0 6px #F59E0B;}
+  .pcard .status.green{background:#22C55E; box-shadow:0 0 6px #22C55E;}
+  .pcard .title{font-size:13px; font-weight:700; color:var(--text); margin-bottom:6px; padding-right:18px; line-height:1.3;}
+  .pcard .asker{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px;}
+  .pcard .asker b{color:var(--accent); font-weight:600;}
+  .pcard .why{font-size:12px; color:var(--text); line-height:1.5; margin-bottom:8px; opacity:.85;}
+  .pcard .need{font-size:11px; color:var(--muted); line-height:1.4; padding-top:8px; border-top:1px dashed var(--panel2);}
+  .pcard .need b{color:var(--text); display:block; margin-bottom:3px; font-size:10px; text-transform:uppercase; letter-spacing:.5px;}
+  .pending-legend{display:flex; gap:14px; font-size:11px; color:var(--muted); margin-top:12px; align-items:center;}
+  .pending-legend .item{display:flex; align-items:center; gap:5px;}
+  .pending-legend .dot{width:8px; height:8px; border-radius:50%;}
+
+  /* === Info button & modal === */
+  .info-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:18px; height:18px; border-radius:50%;
+    background:var(--panel2); color:var(--muted);
+    border:1px solid var(--line); font-size:11px; font-weight:700; font-style:italic;
+    font-family:"Georgia",serif;
+    cursor:pointer; transition:all .15s; flex-shrink:0; user-select:none;
+    padding:0; line-height:1;
+  }
+  .info-btn:hover{background:var(--accent); color:#0F172A; border-color:var(--accent); transform:scale(1.1);}
+  .kpi .info-btn{position:absolute; top:10px; right:10px;}
+  .panel h3 .info-btn{margin-left:auto;}
+  .pcard .info-btn{position:absolute; top:10px; right:24px; width:16px; height:16px; font-size:10px;}
+  .insights h3 .info-btn{margin-left:auto;}
+
+  .info-overlay{
+    display:none; position:fixed; inset:0; background:rgba(15,23,42,.85);
+    z-index:1000; align-items:center; justify-content:center; padding:20px;
+    backdrop-filter:blur(4px);
+  }
+  .info-overlay.open{display:flex;}
+  .info-modal{
+    background:var(--panel); border:1px solid var(--accent); border-radius:14px;
+    padding:28px 30px 24px; max-width:520px; width:100%;
+    box-shadow:0 20px 60px rgba(0,0,0,.5); position:relative;
+    animation:slideUp .2s ease-out;
+  }
+  @keyframes slideUp{from{transform:translateY(10px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  .info-modal h4{margin:0 0 14px; font-size:18px; color:var(--accent); display:flex; align-items:center; gap:10px;}
+  .info-modal h4 .icon{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:32px; height:32px; border-radius:50%; background:var(--accent); color:#0F172A;
+    font-size:18px; font-weight:700; font-family:"Georgia",serif; font-style:italic;
+  }
+  .info-modal .body{font-size:14px; line-height:1.6; color:var(--text); margin-bottom:18px;}
+  .info-modal .body p{margin:0 0 10px;}
+  .info-modal .body p:last-child{margin-bottom:0;}
+  .info-modal .body .example{background:#13243C; border-left:3px solid var(--accent); padding:10px 14px; border-radius:4px; margin-top:12px; font-size:13px; color:var(--muted);}
+  .info-modal .body .example b{color:var(--text);}
+  .info-modal .close{
+    position:absolute; top:14px; right:14px; width:28px; height:28px;
+    background:transparent; border:none; color:var(--muted); cursor:pointer;
+    font-size:20px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  }
+  .info-modal .close:hover{background:var(--panel2); color:var(--text);}
+  .info-modal .got-it{
+    background:var(--accent); color:#0F172A; border:none; padding:8px 18px;
+    border-radius:8px; font-weight:600; font-size:13px; cursor:pointer; transition:opacity .15s;
+  }
+  .info-modal .got-it:hover{opacity:.85;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1 id="title"></h1>
+    <div class="sub" id="subtitle"></div>
+  </div>
+  <div class="lang-switch" id="langSwitch">
+    <button data-lang="pt">PT</button>
+    <button data-lang="ru">RU</button>
+    <button data-lang="en">EN</button>
+  </div>
+</div>
+<div class="sources" id="sources"></div>
+
+<div class="assumptions" id="assumptions"></div>
+
+<div class="filters" id="filters"></div>
+
+<div class="row" id="kpis"></div>
+
+<div class="insights">
+  <h3><span id="insightsTitle"></span><button class="info-btn" data-help="insights" aria-label="Info">i</button></h3>
+  <ul id="insightsList"></ul>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h3><span id="t_chGMV"></span> <span class="pill" id="t_chGMVpill"></span><button class="info-btn" data-help="chartGMV" aria-label="Info">i</button></h3>
+    <div class="chart-wrap"><canvas id="chGMV"></canvas></div>
+  </div>
+  <div class="panel">
+    <h3><span id="t_chROI"></span> <span class="pill" id="t_chROIpill"></span><button class="info-btn" data-help="chartROI" aria-label="Info">i</button></h3>
+    <div class="chart-wrap"><canvas id="chROI"></canvas></div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h3><span id="t_chAct"></span> <span class="pill" id="t_chActpill"></span><button class="info-btn" data-help="chartAct" aria-label="Info">i</button></h3>
+    <div class="chart-wrap"><canvas id="chActivations"></canvas></div>
+  </div>
+  <div class="panel">
+    <h3><span id="t_chMix"></span> <span class="pill" id="t_chMixpill"></span><button class="info-btn" data-help="chartMix" aria-label="Info">i</button></h3>
+    <div class="chart-wrap"><canvas id="chMix"></canvas></div>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:24px;">
+  <h3><span id="t_tbl"></span> <span class="pill" id="t_tblpill"></span><button class="info-btn" data-help="table" aria-label="Info">i</button></h3>
+  <table id="tbl"><thead><tr id="tblHead"></tr></thead><tbody></tbody></table>
+</div>
+
+<div class="pending-section">
+  <div class="head">
+    <h2><span id="t_pendTitle"></span> <span class="muted" id="t_pendSub"></span><button class="info-btn" data-help="pending" aria-label="Info" style="margin-left:10px; vertical-align:middle;">i</button></h2>
+  </div>
+  <div class="pending-grid" id="pendingGrid"></div>
+  <div class="pending-legend" id="pendingLegend"></div>
+</div>
+
+<div class="footer" id="footer"></div>
+
+<div class="info-overlay" id="infoOverlay">
+  <div class="info-modal">
+    <button class="close" id="infoClose" aria-label="Close">×</button>
+    <h4><span class="icon">i</span><span id="infoTitle"></span></h4>
+    <div class="body" id="infoBody"></div>
+    <button class="got-it" id="infoOk"></button>
+  </div>
+</div>
+
+<script>
+// ============================================
+// I18N — translation dictionaries
+// ============================================
+const I18N = {
+  pt: {
+    locale:"pt-BR",
+    title_main: "JET Collaborations",
+    title_accent: "— Dashboard de eficiência (GMV real)",
+    subtitle: "Período: lançamento dos cupons → 28/05/2026 • Atualização semanal • Responsável: Ruslan Barbolin",
+    sources: 'Fonte autoritativa: <b>20260528_164649.csv</b> — GMV, GMV Cash, bônus, orçamento — todos por promocode.',
+    asm:[ {b:"GMV total", s:"valor bruto das corridas+PB"},
+          {b:"GMV Cash", s:"dinheiro que JET recebeu"},
+          {b:"Bônus", s:"GMV − Cash (desconto concedido)"},
+          {b:"ROI", s:"(Cash − Bônus) ÷ Bônus"} ],
+    filter:"Filtro:", all:"Todos",
+    kpi:{ codes:"Promocodes", act:"Ativações", pctNew:"% novos clientes", trips:"Corridas (promo)",
+          gmv:"GMV total", cash:"Receita Cash", bonus:"Bônus usado", roi:"ROI"},
+    insightsTitle:"💡 Insights & ações (dados reais do CSV)",
+    tag:{ win:"WIN", warn:"ATENÇÃO", ok:"PORTFÓLIO", next:"PRÓX." },
+    ins:{
+      win: (c,roi,trips,cash)=>`<b>${c}</b>: ROI ${roi} — gerou ${trips} corridas e ${cash} em Cash. Replicar formato com parceiros similares.`,
+      warn:(c,trips,util,issued)=>`<b>${c}</b>: apenas ${trips} corridas apesar de ${issued} códigos emitidos. Utilização do orçamento: ${util}. Audiência desengajada — revisar canal/parceiro.`,
+      ok:  (cash,bonus,roi)=>`Portfólio total: <b>${cash}</b> em Cash recebido contra <b>${bonus}</b> de bônus = ROI consolidado <b>${roi}</b>.`,
+      next:`Pedir aos analistas: cliques no link (funil), custo de colocação pago aos parceiros, retention pós-promo.`,
+    },
+    chart:{ gmv:"Receita Cash vs. Bônus", gmvPill:"por promocode (R$)",
+            roi:"ROI por promocode", roiPill:"% retorno do investimento",
+            act:"Ativações", actPill:"novos vs. recorrentes",
+            mix:"Utilização do orçamento", mixPill:"% do budget máx. usado" },
+    chartDS:{ cash:"Receita Cash", bonus:"Bônus", roi:"ROI", novos:"Novos", ativos:"Recorrentes", util:"Utilização" },
+    tbl:{ title:"Detalhamento por promocode", pill:"CSV (primária, 28/05) + Excel (referência, 24/05)",
+          head:["Promocode","Campanha","Ativações","% novos","Corridas","GMV (R$)","Cash (R$)","Bônus (R$)","Lucro líq. (R$)","ROI","Util. orçamento"],
+          total:"TOTAL" },
+    pending:{ title:"📦 Cartões pendentes — perguntas sem dados ainda",
+              sub:"Esperando dados dos analistas. Quando chegarem, populamos estas seções.",
+              askedBy:"Pedido por", needLabel:"O que precisamos",
+              legend:[{c:"red",l:"Bloqueador"},{c:"yellow",l:"Importante"},{c:"green",l:"Em andamento / nice to have"}] },
+    footer:"Fontes: <b>20260528_164649.csv</b> (CSV — primária, baixada em 28/05) + <b>pb_sc_promocodes_24.05.xlsx</b> (Excel — referência, baixada em 24/05). Quando há divergência não crítica, prevalece o CSV (mais recente).<br>Atualização: semanal, segundas-feiras."
+  },
+
+  ru: {
+    locale:"ru-RU",
+    title_main: "JET Collaborations",
+    title_accent: "— Дашборд эффективности (реальный GMV)",
+    subtitle: "Период: с запуска промокодов → 28.05.2026 • Обновление еженедельно • Ответственный: Руслан Барболин",
+    sources: 'Источник: <b>20260528_164649.csv</b> — GMV, GMV Cash, бонус, бюджет — всё по каждому промокоду.',
+    asm:[ {b:"GMV total", s:"общая стоимость поездок и аренд ПБ"},
+          {b:"GMV Cash", s:"деньги, которые JET получил"},
+          {b:"Бонус", s:"GMV − Cash (предоставленная скидка)"},
+          {b:"ROI", s:"(Cash − Бонус) ÷ Бонус"} ],
+    filter:"Фильтр:", all:"Все",
+    kpi:{ codes:"Промокодов", act:"Активации", pctNew:"% новых клиентов", trips:"Поездки (промо)",
+          gmv:"GMV всего", cash:"Cash выручка", bonus:"Бонус потрачено", roi:"ROI"},
+    insightsTitle:"💡 Инсайты и действия (реальные данные из CSV)",
+    tag:{ win:"WIN", warn:"ВНИМАНИЕ", ok:"ПОРТФЕЛЬ", next:"NEXT" },
+    ins:{
+      win: (c,roi,trips,cash)=>`<b>${c}</b>: ROI ${roi} — ${trips} поездок, ${cash} Cash. Тиражировать формат на похожих партнёров.`,
+      warn:(c,trips,util,issued)=>`<b>${c}</b>: всего ${trips} поездок при ${issued} выпущенных кодах. Использование бюджета: ${util}. Аудитория не вовлечена — пересмотреть канал/партнёра.`,
+      ok:  (cash,bonus,roi)=>`Итого по портфелю: <b>${cash}</b> Cash против <b>${bonus}</b> бонусов = общий ROI <b>${roi}</b>.`,
+      next:`Запросить у аналитиков: клики по ссылкам (воронка), стоимость размещения у партнёров, retention после промо.`,
+    },
+    chart:{ gmv:"Cash выручка vs. Бонусы", gmvPill:"по промокодам (R$)",
+            roi:"ROI по промокодам", roiPill:"% возврата инвестиций",
+            act:"Активации", actPill:"новые vs. возвратные",
+            mix:"Использование бюджета", mixPill:"% от макс. бюджета" },
+    chartDS:{ cash:"Cash выручка", bonus:"Бонус", roi:"ROI", novos:"Новые", ativos:"Возвратные", util:"Использование" },
+    tbl:{ title:"Детализация по промокодам", pill:"CSV (primary, 28.05) + Excel (справочно, 24.05)",
+          head:["Промокод","Кампания","Активации","% новых","Поездки","GMV (R$)","Cash (R$)","Бонус (R$)","Чистая приб. (R$)","ROI","Исп. бюджета"],
+          total:"ИТОГО" },
+    pending:{ title:"📦 Карточки в ожидании — вопросы без данных",
+              sub:"Ждём аналитиков. Когда придут данные — наполним эти секции.",
+              askedBy:"Запросил", needLabel:"Что нужно",
+              legend:[{c:"red",l:"Блокер"},{c:"yellow",l:"Важно"},{c:"green",l:"В работе / nice to have"}] },
+    footer:"Источники: <b>20260528_164649.csv</b> (CSV — primary, скачан 28.05) + <b>pb_sc_promocodes_24.05.xlsx</b> (Excel — справочно, скачан 24.05). При некритичных расхождениях приоритет — CSV (более свежий).<br>Обновление: еженедельно, по понедельникам."
+  },
+
+  en: {
+    locale:"en-US",
+    title_main: "JET Collaborations",
+    title_accent: "— Efficiency dashboard (real GMV)",
+    subtitle: "Period: promocode launch → 2026-05-28 • Weekly updates • Owner: Ruslan Barbolin",
+    sources: 'Source: <b>20260528_164649.csv</b> — GMV, Cash GMV, bonus, budget — all per promocode.',
+    asm:[ {b:"GMV total", s:"gross trip + PB rental value"},
+          {b:"GMV Cash", s:"money JET actually received"},
+          {b:"Bonus", s:"GMV − Cash (discount granted)"},
+          {b:"ROI", s:"(Cash − Bonus) ÷ Bonus"} ],
+    filter:"Filter:", all:"All",
+    kpi:{ codes:"Promocodes", act:"Activations", pctNew:"% new clients", trips:"Trips (promo)",
+          gmv:"Total GMV", cash:"Cash revenue", bonus:"Bonus spent", roi:"ROI"},
+    insightsTitle:"💡 Insights & actions (real data from CSV)",
+    tag:{ win:"WIN", warn:"WATCH", ok:"PORTFOLIO", next:"NEXT" },
+    ins:{
+      win: (c,roi,trips,cash)=>`<b>${c}</b>: ROI ${roi} — generated ${trips} trips and ${cash} in cash. Replicate format with similar partners.`,
+      warn:(c,trips,util,issued)=>`<b>${c}</b>: only ${trips} trips despite ${issued} codes issued. Budget utilization: ${util}. Disengaged audience — review channel/partner.`,
+      ok:  (cash,bonus,roi)=>`Portfolio total: <b>${cash}</b> in Cash against <b>${bonus}</b> in bonus = consolidated ROI <b>${roi}</b>.`,
+      next:`Ask analysts for: link clicks (funnel), placement cost paid to partners, post-promo retention.`,
+    },
+    chart:{ gmv:"Cash revenue vs. Bonus", gmvPill:"per promocode (R$)",
+            roi:"ROI per promocode", roiPill:"% return on investment",
+            act:"Activations", actPill:"new vs. returning",
+            mix:"Budget utilization", mixPill:"% of max budget used" },
+    chartDS:{ cash:"Cash revenue", bonus:"Bonus", roi:"ROI", novos:"New", ativos:"Returning", util:"Utilization" },
+    tbl:{ title:"Per-promocode breakdown", pill:"CSV (primary, 28/05) + Excel (reference, 24/05)",
+          head:["Promocode","Campaign","Activations","% new","Trips","GMV (R$)","Cash (R$)","Bonus (R$)","Net profit (R$)","ROI","Budget util."],
+          total:"TOTAL" },
+    pending:{ title:"📦 Pending cards — questions without data yet",
+              sub:"Waiting on analyst data. Once it arrives, we'll populate these sections.",
+              askedBy:"Asked by", needLabel:"What we need",
+              legend:[{c:"red",l:"Blocker"},{c:"yellow",l:"Important"},{c:"green",l:"In progress / nice to have"}] },
+    footer:"Sources: <b>20260528_164649.csv</b> (CSV — primary, fetched 28/05) + <b>pb_sc_promocodes_24.05.xlsx</b> (Excel — reference, fetched 24/05). On non-critical discrepancies, CSV prevails (more recent).<br>Weekly updates on Mondays."
+  }
+};
+
+// ============================================
+// HELP — explicações simples (nível "criança de 10 anos")
+// ============================================
+const HELP = {
+  pt: {
+    // KPIs
+    codes:   { title:"Promocodes ativos", body:`<p>É o número de cupons diferentes que estamos distribuindo agora.</p><p>Cada parceiro (Hubees, NIX, blogueiro) tem o seu próprio cupom. Aqui vemos quantos estão rodando ao mesmo tempo.</p>` },
+    act:     { title:"Ativações totais", body:`<p>Quantas vezes alguém digitou o cupom dentro do app JET.</p><p>Uma pessoa = uma ativação. Se 100 pessoas usaram o cupom NIX, temos 100 ativações.</p><div class="example"><b>Por que importa:</b> mostra quantas pessoas a campanha "puxou" para o app.</div>` },
+    pctNew:  { title:"% de novos clientes", body:`<p>Dos que ativaram o cupom, quantos são clientes NOVOS na JET (nunca usaram antes).</p><p>Quanto maior esse número, melhor — significa que o cupom está trazendo gente nova de verdade, e não só dando desconto pra quem já era cliente.</p><div class="example"><b>Exemplo:</b> 97% = quase todos que ativaram são novos. Ótimo.</div>` },
+    trips:   { title:"Corridas pelo promo", body:`<p>Quantas corridas/aluguéis as pessoas fizeram com o cupom aplicado, durante o período da campanha.</p><p>É a "saída direta" do cupom — o que ele gerou de uso.</p>` },
+    gmv:     { title:"GMV total (R$)", body:`<p>Valor total das corridas e aluguéis pela tabela cheia, em reais.</p><p>É o valor "de tabela" — antes do desconto. Pense como o preço cheio do supermercado, antes do cupom.</p>` },
+    cash:    { title:"Receita Cash (R$)", body:`<p>O dinheiro de verdade que entrou no caixa da JET.</p><p>Conta: <b>Cash = GMV − Desconto</b>. É o que o usuário pagou com o cartão, depois do desconto do cupom.</p><div class="example"><b>Exemplo:</b> corrida de R$ 10, cupom dá R$ 3 de desconto → Cash = R$ 7.</div>` },
+    bonus:   { title:"Custo do bônus (R$)", body:`<p>Quanto a JET gastou dando desconto.</p><p>Conta: <b>Bônus = GMV − Cash</b>. É a parte do preço que NÓS pagamos pelo cliente para incentivar o uso.</p>` },
+    roi:     { title:"ROI — retorno do investimento", body:`<p>Para cada R$ 1 gasto em desconto, quantos reais a JET ganhou de volta?</p><p>Conta: <b>(Cash − Bônus) ÷ Bônus</b>.</p><div class="example"><b>Exemplo:</b> ROI = 1.000% significa que gastamos R$ 1 e ganhamos R$ 11 (R$ 10 de lucro + R$ 1 de volta). Quanto maior, melhor.</div>` },
+    // Charts
+    chartGMV:   { title:"Cash vs. Bônus", body:`<p>Comparação visual: para cada cupom, quanto entrou no caixa (verde) versus quanto foi gasto em desconto (vermelho).</p><p>Quanto maior a diferença a favor do verde, melhor a campanha.</p>` },
+    chartROI:   { title:"ROI por cupom", body:`<p>Mostra o retorno de cada cupom em formato de barra.</p><p>🟢 Verde = ótimo retorno (>200%)<br>🟡 Amarelo = OK (positivo mas baixo)<br>🔴 Vermelho = prejuízo (gastamos mais do que ganhamos)</p>` },
+    chartAct:   { title:"Ativações: novos vs. recorrentes", body:`<p>Barra empilhada: <span style="color:#22C55E">verde</span> são clientes novos, <span style="color:#38BDF8">azul</span> são clientes que já usavam JET antes.</p><p>Cupom "ideal" tem barra mais verde — atrai gente nova.</p>` },
+    chartMix:   { title:"Utilização do orçamento", body:`<p>Cada cupom tem um teto máximo de quanto podemos gastar em desconto. Esse gráfico mostra que % desse teto já foi consumido.</p><div class="example"><b>Por exemplo:</b> HUBEES tem orçamento de R$ 250.000 mas só usou R$ 67 — está em 0,03%. Provavelmente as pessoas estão ativando mas não usando o desconto.</div>` },
+    // Other
+    table:    { title:"Tabela detalhada", body:`<p>Todas as métricas, cupom por cupom, lado a lado.</p><p>Use para comparar campanhas e ver na hora qual está performando melhor em cada dimensão.</p>` },
+    insights: { title:"Insights automáticos", body:`<p>O dashboard lê os números e te dá os 3-4 destaques principais: o cupom campeão, o que precisa de atenção, e qual o próximo passo.</p><p>Atualiza automaticamente quando os dados mudam.</p>` },
+    pending:  { title:"Cartões pendentes", body:`<p>São perguntas que Ilya e Ruslan querem ver respondidas, mas para as quais ainda não temos os dados dos analistas.</p><p>Cada cartão mostra: a pergunta, quem perguntou, por que importa, e o que precisamos receber dos analistas para preenchê-lo.</p><div class="example">Cor do indicador:<br>🔴 Bloqueador (pedir já)<br>🟡 Importante<br>🟢 Já em andamento</div>` },
+  },
+
+  ru: {
+    codes:   { title:"Активные промокоды", body:`<p>Это сколько разных купонов мы сейчас раздаём через партнёров.</p><p>Каждый партнёр (Hubees, NIX, блогер) — это свой промокод. Здесь видим, сколько кампаний идёт одновременно.</p>` },
+    act:     { title:"Активации", body:`<p>Сколько раз люди ввели промокод в приложении JET.</p><p>Один человек = одна активация. Если 100 человек воспользовались кодом NIX, это 100 активаций.</p><div class="example"><b>Зачем нужно:</b> показывает, сколько людей кампания «затащила» в приложение.</div>` },
+    pctNew:  { title:"% новых клиентов", body:`<p>Из тех, кто активировал промокод, сколько процентов — НОВЫЕ для JET (раньше не пользовались).</p><p>Чем выше число, тем лучше — значит мы реально привлекаем новую аудиторию, а не просто даём скидку тем, кто и так уже клиент.</p><div class="example"><b>Пример:</b> 97% = почти все, кто активировал — новые. Отлично.</div>` },
+    trips:   { title:"Поездки по промо", body:`<p>Сколько поездок/аренд люди совершили с применённым промокодом за период действия купона.</p><p>Это «прямой выхлоп» промокода — что он реально породил по использованию.</p>` },
+    gmv:     { title:"GMV total (R$)", body:`<p>Общая стоимость поездок и аренд по полному прайсу, в реалах.</p><p>Это сумма «по ценнику» — ДО скидки. Представь как полную цену в магазине до купона.</p>` },
+    cash:    { title:"Cash выручка (R$)", body:`<p>Реальные деньги, которые попали в кассу JET.</p><p>Формула: <b>Cash = GMV − Скидка</b>. Это то, что юзер заплатил картой после скидки купона.</p><div class="example"><b>Пример:</b> поездка R$ 10, купон даёт скидку R$ 3 → Cash = R$ 7.</div>` },
+    bonus:   { title:"Стоимость бонуса (R$)", body:`<p>Сколько JET потратил на скидку.</p><p>Формула: <b>Бонус = GMV − Cash</b>. Это та часть цены, которую МЫ оплатили за клиента, чтобы он попробовал сервис.</p>` },
+    roi:     { title:"ROI — возврат инвестиций", body:`<p>На каждый рубль (реал) скидки — сколько мы получили обратно?</p><p>Формула: <b>(Cash − Бонус) ÷ Бонус</b>.</p><div class="example"><b>Пример:</b> ROI = 1.000% значит, что потратили R$ 1, а вернули R$ 11 (R$ 10 чистой прибыли + R$ 1 обратно). Чем больше, тем лучше.</div>` },
+    chartGMV:   { title:"Cash vs. Бонус", body:`<p>Визуальное сравнение: для каждого купона — сколько денег пришло (зелёный) и сколько потратили на скидку (красный).</p><p>Чем больше разрыв в пользу зелёного, тем эффективнее кампания.</p>` },
+    chartROI:   { title:"ROI по промокодам", body:`<p>Возврат каждого промокода в виде столбца.</p><p>🟢 Зелёный = отличный ROI (>200%)<br>🟡 Жёлтый = окупается, но слабо<br>🔴 Красный = в минус (потратили больше, чем заработали)</p>` },
+    chartAct:   { title:"Активации: новые vs. возвратные", body:`<p>Stacked bar: <span style="color:#22C55E">зелёный</span> — новые клиенты, <span style="color:#38BDF8">синий</span> — те, кто уже пользовался JET.</p><p>«Идеальный» купон имеет много зелёного — значит, привлекает новых.</p>` },
+    chartMix:   { title:"Использование бюджета", body:`<p>У каждого купона есть максимальный бюджет на скидки. Этот график показывает, какой % бюджета уже потрачен.</p><div class="example"><b>Например:</b> HUBEES имеет бюджет R$ 250.000, а использован только R$ 67 — это 0,03%. Видимо, люди активируют, но скидкой не пользуются.</div>` },
+    table:    { title:"Детальная таблица", body:`<p>Все метрики по каждому промокоду, рядом для сравнения.</p><p>Используй, чтобы сразу увидеть, какая кампания лучше по каждому измерению.</p>` },
+    insights: { title:"Автоматические инсайты", body:`<p>Дашборд читает цифры и выдаёт 3-4 главных вывода: чемпион кампаний, на что обратить внимание, и какой следующий шаг.</p><p>Обновляется автоматически при изменении данных.</p>` },
+    pending:  { title:"Карточки в ожидании", body:`<p>Это вопросы, на которые Илья и Руслан хотят получить ответы, но данных у нас пока нет.</p><p>Каждая карточка показывает: вопрос, кто его задал, зачем это важно, и что нам нужно от аналитиков, чтобы её закрыть.</p><div class="example">Цвет индикатора:<br>🔴 Блокер (запросить срочно)<br>🟡 Важно<br>🟢 Уже в работе</div>` },
+  },
+
+  en: {
+    codes:   { title:"Active promocodes", body:`<p>The number of different coupons we currently run with partners.</p><p>Each partner (Hubees, NIX, blogger) has its own code. Here we see how many campaigns are live at the same time.</p>` },
+    act:     { title:"Total activations", body:`<p>How many times someone typed the coupon into the JET app.</p><p>One person = one activation. If 100 people used the NIX coupon, that's 100 activations.</p><div class="example"><b>Why it matters:</b> shows how many people the campaign "pulled" into the app.</div>` },
+    pctNew:  { title:"% of new clients", body:`<p>Of those who activated the coupon, what % are NEW JET clients (never used before).</p><p>The higher this number, the better — it means the coupon really brings new audience, not just gives a discount to existing users.</p><div class="example"><b>Example:</b> 97% = almost everyone who activated is new. Great.</div>` },
+    trips:   { title:"Trips by promo", body:`<p>How many trips/rentals people made with the coupon applied during the campaign window.</p><p>It's the "direct output" of the coupon — what it actually generated in usage.</p>` },
+    gmv:     { title:"Total GMV (R$)", body:`<p>Total value of trips and rentals at full price, in reais.</p><p>This is the "price tag" value — BEFORE discount. Think of it as the supermarket full price before the coupon.</p>` },
+    cash:    { title:"Cash revenue (R$)", body:`<p>The actual money that hit JET's bank account.</p><p>Formula: <b>Cash = GMV − Discount</b>. It's what the user paid with their card after the coupon discount.</p><div class="example"><b>Example:</b> R$ 10 trip, coupon gives R$ 3 off → Cash = R$ 7.</div>` },
+    bonus:   { title:"Bonus cost (R$)", body:`<p>How much JET spent on discounts.</p><p>Formula: <b>Bonus = GMV − Cash</b>. It's the price portion WE paid on behalf of the client to incentivize the use.</p>` },
+    roi:     { title:"ROI — return on investment", body:`<p>For every R$ 1 spent on discount, how many reais did JET get back?</p><p>Formula: <b>(Cash − Bonus) ÷ Bonus</b>.</p><div class="example"><b>Example:</b> ROI = 1,000% means we spent R$ 1 and got R$ 11 back (R$ 10 net profit + R$ 1 returned). Bigger is better.</div>` },
+    chartGMV:   { title:"Cash vs. Bonus", body:`<p>Visual comparison: for each coupon, how much money came in (green) vs. how much was spent on discount (red).</p><p>The bigger the gap in favor of green, the more efficient the campaign.</p>` },
+    chartROI:   { title:"ROI per coupon", body:`<p>Each coupon's return shown as a bar.</p><p>🟢 Green = great ROI (>200%)<br>🟡 Yellow = breaks even but low<br>🔴 Red = loss (we spent more than we earned)</p>` },
+    chartAct:   { title:"Activations: new vs. returning", body:`<p>Stacked bar: <span style="color:#22C55E">green</span> are new clients, <span style="color:#38BDF8">blue</span> are users who already used JET.</p><p>An "ideal" coupon has more green — it brings new people.</p>` },
+    chartMix:   { title:"Budget utilization", body:`<p>Each coupon has a max budget for discounts. This chart shows how much of that budget has been used.</p><div class="example"><b>For example:</b> HUBEES has a R$ 250,000 budget, but only R$ 67 used — that's 0.03%. People are activating but not using the discount.</div>` },
+    table:    { title:"Detailed table", body:`<p>All metrics, coupon by coupon, side by side.</p><p>Use it to compare campaigns and instantly see which is performing best on each dimension.</p>` },
+    insights: { title:"Automatic insights", body:`<p>The dashboard reads the numbers and gives you the 3-4 key takeaways: the winning coupon, what needs attention, and the next step.</p><p>Auto-updates when data changes.</p>` },
+    pending:  { title:"Pending cards", body:`<p>Questions Ilya and Ruslan want answered, but for which we don't have analyst data yet.</p><p>Each card shows: the question, who asked, why it matters, and what we need from analysts to fill it in.</p><div class="example">Status color:<br>🔴 Blocker (ask now)<br>🟡 Important<br>🟢 Already in progress</div>` },
+  },
+};
+
+// ============================================
+// DATA — CSV primário (mais recente: 28/05)
+// Excel (24/05) usado só como histórico / "lifetime trips" para comparação
+// ============================================
+const DATA = [
+  { code:"HUBEES",    campaign:"HUBEES",          partner:{pt:"Hubees",     ru:"Hubees",     en:"Hubees"},
+    start:"2026-02-03", end:"2026-03-07",
+    activations:29,  new_users:28,  returning:1,
+    trips:26, pb_rentals:3,
+    codes_issued:5000, budget_max:250000.0,
+    gmv_trips:384.09,  gmv_cash_trips:355.34,
+    gmv_pb:38.0,       gmv_cash_pb:0.0,
+    trips_lifetime_excel:446, pb_lifetime_excel:26 },
+  { code:"NIX",       campaign:"Nix (instagram)", partner:{pt:"NIX",        ru:"NIX",        en:"NIX"},
+    start:"2026-04-18", end:"2026-06-17",
+    activations:108, new_users:104, returning:4,
+    trips:187, pb_rentals:2,
+    codes_issued:500,  budget_max:2500.0,
+    gmv_trips:1849.07, gmv_cash_trips:1695.37,
+    gmv_pb:10.0,       gmv_cash_pb:10.0,
+    trips_lifetime_excel:456, pb_lifetime_excel:17 },
+  { code:"ONDEIRBC1", campaign:"блоггер",          partner:{pt:"Onde Ir BC", ru:"Onde Ir BC", en:"Onde Ir BC"},
+    start:"2026-02-03", end:"2027-01-01",
+    activations:164, new_users:162, returning:2,
+    trips:414, pb_rentals:3,
+    codes_issued:300,  budget_max:6300.0,
+    gmv_trips:3954.97, gmv_cash_trips:3671.53,
+    gmv_pb:62.0,       gmv_cash_pb:62.0,
+    trips_lifetime_excel:343, pb_lifetime_excel:2 },
+];
+DATA.forEach(r=>{
+  r.gmv       = r.gmv_trips + r.gmv_pb;
+  r.cash      = r.gmv_cash_trips + r.gmv_cash_pb;
+  r.bonus     = r.gmv - r.cash;
+  r.profit    = r.cash - r.bonus;
+  r.roi       = r.bonus > 0 ? r.profit / r.bonus : 0;
+  r.pctNew    = r.activations > 0 ? r.new_users / r.activations : 0;
+  r.tripsPerAct = r.activations > 0 ? r.trips / r.activations : 0;
+  r.budgetUtil  = r.budget_max > 0 ? r.bonus / r.budget_max : 0;
+});
+
+// ============================================
+// PENDING CARDS — perguntas sem dados ainda
+// ============================================
+const PENDING_CARDS = {
+  pt: [
+    { title:"Funil cliques → ativações (CR1)", asker:"Ilya", date:"07/05/2026",
+      why:"Sem cliques não fechamos o funil; mede eficiência da landing antes da ativação.",
+      need:"Cliques por UTM + canal (Instagram/email/banner parceiro)", status:"red" },
+    { title:"LTV / retention 30/60/90 dias", asker:"Ruslan", date:"hipótese",
+      why:"Diferença Excel 446 vs CSV 26 corridas (HUBEES) = efeito halo. Quantificar.",
+      need:"Cohort de usuários ativados, GMV Cash mês a mês por 90 dias", status:"red" },
+    { title:"CAC: promo vs. outros canais", asker:"Ruslan", date:"hipótese",
+      why:"Sem benchmark não sabemos se R$ 1.7/ativação é caro ou barato.",
+      need:"CAC por canal (Meta, Google, ASO, referral) — blended 2026", status:"yellow" },
+    { title:"Custo de placement por parceiro", asker:"Ruslan", date:"hipótese",
+      why:"Hoje medimos só bônus. Pagamento ao blogueiro/parceiro NÃO está incluído — ROI real pode ser menor.",
+      need:"R$ pago a cada parceiro por campanha (fee, % share, criativo)", status:"yellow" },
+    { title:"Distribuição geográfica", asker:"Ruslan", date:"hipótese",
+      why:"OndeIrBC deveria ativar em SC; se vier de SP, há mismatch parceiro/região.",
+      need:"Ativações por cidade × promocode", status:"yellow" },
+    { title:"Dinâmica W/W (semana a semana)", asker:"Ilya", date:"07/05/2026",
+      why:"«Обновление раз в неделю». Dinâmica mostra se campanha cresce ou morre.",
+      need:"Snapshot automático toda segunda-feira", status:"green" },
+    { title:"UTM/source por ativação", asker:"Ruslan", date:"hipótese",
+      why:"Sem UTM não sabemos qual canal (Instagram, email, push, banner) funciona.",
+      need:"Coluna utm_source no relatório de ativações", status:"red" },
+    { title:"Qualidade das ativações (anti-fraude)", asker:"Ruslan", date:"hipótese",
+      why:"ONDEIRBC1: 162 ativações em 4 meses por blogueiro com 300 códigos. Verificar farm.",
+      need:"Flags de fraude, device-id, padrões suspeitos", status:"yellow" },
+    { title:"Conversão ativação → 1ª corrida (CR2)", asker:"Ruslan", date:"hipótese",
+      why:"CSV já tem «Кол-во первых поездок» (8/27/105). Só falta visualização cohort.",
+      need:"Dias entre ativação e 1ª corrida + % de ativados que viraram corrida", status:"yellow" },
+  ],
+  ru: [
+    { title:"Воронка клики → активации (CR1)", asker:"Илья", date:"07.05.2026",
+      why:"Без кликов не закроем воронку; меряет эффективность лендинга до активации.",
+      need:"Клики по UTM + канал (Instagram/email/banner партнёра)", status:"red" },
+    { title:"LTV / retention 30/60/90 дней", asker:"Руслан", date:"гипотеза",
+      why:"Расхождение Excel 446 vs CSV 26 поездок (HUBEES) = halo-эффект. Замерить.",
+      need:"Cohort активированных юзеров, GMV Cash по месяцам в течение 90 дней", status:"red" },
+    { title:"CAC: промо vs. другие каналы", asker:"Руслан", date:"гипотеза",
+      why:"Без бенчмарка не понять, дорого ли R$ 1.7/активацию.",
+      need:"CAC по каналам (Meta, Google, ASO, referral) — blended 2026", status:"yellow" },
+    { title:"Стоимость размещения у партнёра", asker:"Руслан", date:"гипотеза",
+      why:"Сейчас считаем только бонус. Оплата блогеру/партнёру НЕ включена — реальный ROI может быть ниже.",
+      need:"R$ выплачено каждому партнёру (fee, % share, креатив)", status:"yellow" },
+    { title:"Геораспределение активаций", asker:"Руслан", date:"гипотеза",
+      why:"OndeIrBC должен активироваться в SC; если идёт из SP — mismatch партнёра/региона.",
+      need:"Активации по городам × промокод", status:"yellow" },
+    { title:"Динамика W/W (неделя к неделе)", asker:"Илья", date:"07.05.2026",
+      why:"«Обновление раз в неделю». Динамика покажет, растёт кампания или умирает.",
+      need:"Автоматический снапшот каждый понедельник", status:"green" },
+    { title:"UTM/источник по каждой активации", asker:"Руслан", date:"гипотеза",
+      why:"Без UTM не знаем, какой канал (Instagram, email, push, banner) работает.",
+      need:"Колонка utm_source в отчёте активаций", status:"red" },
+    { title:"Качество активаций (анти-фрод)", asker:"Руслан", date:"гипотеза",
+      why:"ONDEIRBC1: 162 активации за 4 месяца через блогера с 300 кодами. Проверить фарм.",
+      need:"Флаги фрода, device-id, подозрительные паттерны", status:"yellow" },
+    { title:"Конверсия активация → 1-я поездка (CR2)", asker:"Руслан", date:"гипотеза",
+      why:"CSV уже содержит «Кол-во первых поездок» (8/27/105). Не хватает cohort-визуализации.",
+      need:"Дни между активацией и 1-й поездкой + % активированных, ставших поездчиками", status:"yellow" },
+  ],
+  en: [
+    { title:"Click → activation funnel (CR1)", asker:"Ilya", date:"2026-05-07",
+      why:"Without clicks the funnel is open; CR1 measures landing/channel efficiency.",
+      need:"Clicks by UTM + source (Instagram/email/partner banner)", status:"red" },
+    { title:"LTV / retention 30/60/90 days", asker:"Ruslan", date:"hypothesis",
+      why:"Excel 446 vs CSV 26 trips (HUBEES) gap = halo effect. Quantify it.",
+      need:"Cohort of activated users, Cash GMV monthly for 90 days post-activation", status:"red" },
+    { title:"CAC: promo vs. other channels", asker:"Ruslan", date:"hypothesis",
+      why:"Without benchmarks we can't say if R$ 1.7/activation is cheap or expensive.",
+      need:"CAC per channel (Meta, Google, ASO, referral) — blended 2026", status:"yellow" },
+    { title:"Partner placement cost", asker:"Ruslan", date:"hypothesis",
+      why:"Today we only track bonus. Blogger/partner fee is NOT included — real ROI may be lower.",
+      need:"R$ paid to each partner per campaign (fee, % share, creative)", status:"yellow" },
+    { title:"Geographic distribution", asker:"Ruslan", date:"hypothesis",
+      why:"OndeIrBC should activate in SC; if it comes from SP there's a partner/region mismatch.",
+      need:"Activations by city × promocode", status:"yellow" },
+    { title:"W/W dynamics", asker:"Ilya", date:"2026-05-07",
+      why:"«Weekly updates». Dynamics show if a campaign grows or dies.",
+      need:"Automated weekly snapshot every Monday", status:"green" },
+    { title:"UTM/source per activation", asker:"Ruslan", date:"hypothesis",
+      why:"Without UTM we don't know which channel (Instagram, email, push, banner) works.",
+      need:"utm_source column in activations report", status:"red" },
+    { title:"Activation quality (anti-fraud)", asker:"Ruslan", date:"hypothesis",
+      why:"ONDEIRBC1: 162 activations in 4 months via blogger with 300 codes. Check for farming.",
+      need:"Fraud flags, device-id, suspicious patterns", status:"yellow" },
+    { title:"Activation → 1st trip conversion (CR2)", asker:"Ruslan", date:"hypothesis",
+      why:"CSV already has «first_trips» counts (8/27/105). Only cohort viz is missing.",
+      need:"Days between activation and 1st trip + % activated who became riders", status:"yellow" },
+  ],
+};
+
+const COLORS = ["#38BDF8","#F59E0B","#22C55E","#A78BFA","#EC4899","#14B8A6"];
+
+// ============================================
+// State
+// ============================================
+let lang = (navigator.language || "pt").slice(0,2);
+if (!I18N[lang]) lang = "pt";
+let activeFilter = "ALL";
+
+function fmt(){ return new Intl.NumberFormat(I18N[lang].locale); }
+function brl(){ return new Intl.NumberFormat(I18N[lang].locale, {style:"currency", currency:"BRL", maximumFractionDigits:0}); }
+function pct(v){ return (v*100).toFixed(0) + "%"; }
+function dateFmt(d){ return new Date(d).toLocaleDateString(I18N[lang].locale); }
+const t = ()=> I18N[lang];
+
+function setLang(l){ lang = l; document.documentElement.lang = I18N[l].locale; render(); }
+
+// === Info modal helpers ===
+function openInfo(key){
+  const h = (HELP[lang] || HELP.pt)[key];
+  if(!h) return;
+  document.getElementById("infoTitle").textContent = h.title;
+  document.getElementById("infoBody").innerHTML = h.body;
+  document.getElementById("infoOk").textContent = (lang==="ru"?"Понятно":lang==="en"?"Got it":"Entendi");
+  document.getElementById("infoOverlay").classList.add("open");
+}
+function closeInfo(){ document.getElementById("infoOverlay").classList.remove("open"); }
+function infoBtn(key){ return `<button class="info-btn" data-help="${key}" aria-label="Info" title="?">i</button>`; }
+// Delegated click handler for info buttons
+document.addEventListener("click", e=>{
+  const b = e.target.closest(".info-btn");
+  if(b){ e.stopPropagation(); openInfo(b.dataset.help); return; }
+  if(e.target.id === "infoClose" || e.target.id === "infoOk" || e.target.id === "infoOverlay") closeInfo();
+});
+document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeInfo(); });
+
+function renderHeader(){
+  const T = t();
+  document.getElementById("title").innerHTML = `${T.title_main} <span class="accent">${T.title_accent}</span>`;
+  document.getElementById("subtitle").textContent = T.subtitle;
+  document.getElementById("sources").innerHTML = T.sources;
+  document.getElementById("assumptions").innerHTML = T.asm.map(a=>
+    `<div class="assumption"><b>${a.b}</b>${a.s}</div>`
+  ).join("");
+  document.getElementById("footer").innerHTML = T.footer;
+  document.getElementById("insightsTitle").innerHTML = T.insightsTitle;
+  // chart titles
+  document.getElementById("t_chGMV").textContent     = T.chart.gmv;
+  document.getElementById("t_chGMVpill").textContent = T.chart.gmvPill;
+  document.getElementById("t_chROI").textContent     = T.chart.roi;
+  document.getElementById("t_chROIpill").textContent = T.chart.roiPill;
+  document.getElementById("t_chAct").textContent     = T.chart.act;
+  document.getElementById("t_chActpill").textContent = T.chart.actPill;
+  document.getElementById("t_chMix").textContent     = T.chart.mix;
+  document.getElementById("t_chMixpill").textContent = T.chart.mixPill;
+  document.getElementById("t_tbl").textContent       = T.tbl.title;
+  document.getElementById("t_tblpill").textContent   = T.tbl.pill;
+  // active lang button
+  document.querySelectorAll("#langSwitch button").forEach(b=>{
+    b.classList.toggle("active", b.dataset.lang === lang);
+  });
+}
+
+function renderFilters(){
+  const T = t();
+  const f = document.getElementById("filters");
+  const opts = [{k:"ALL", l:T.all}, ...DATA.map(d=>({k:d.code, l:d.code}))];
+  f.innerHTML = `<span class="label">${T.filter}</span>` +
+    opts.map(o=>`<div class="chip ${activeFilter===o.k?'active':''}" data-k="${o.k}">${o.l}</div>`).join("");
+  f.querySelectorAll(".chip").forEach(c=>c.addEventListener("click", ()=>{
+    activeFilter = c.dataset.k; render();
+  }));
+}
+
+function filtered(){ return activeFilter === "ALL" ? DATA : DATA.filter(d=>d.code===activeFilter); }
+
+function renderKPIs(){
+  const T = t();
+  const d = filtered();
+  const sum = (k)=> d.reduce((a,b)=>a+b[k], 0);
+  const totalAct = sum("activations");
+  const totalGMV = sum("gmv");
+  const totalCash = sum("cash");
+  const totalBonus = sum("bonus");
+  const totalROI = totalBonus > 0 ? (totalCash - totalBonus)/totalBonus : 0;
+  const F = fmt(); const B = brl();
+  const items = [
+    {lbl:T.kpi.codes,  val:F.format(d.length),                                                          help:"codes"},
+    {lbl:T.kpi.act,    val:F.format(totalAct),                                                          help:"act"},
+    {lbl:T.kpi.pctNew, val:(totalAct ? (sum("new_users")/totalAct*100).toFixed(1) : "0") + "%", cls:"green",  help:"pctNew"},
+    {lbl:T.kpi.trips,  val:F.format(sum("trips")), cls:"orange",                                              help:"trips"},
+    {lbl:T.kpi.gmv,    val:B.format(totalGMV), cls:"pink",                                                    help:"gmv"},
+    {lbl:T.kpi.cash,   val:B.format(totalCash), cls:"green",                                                  help:"cash"},
+    {lbl:T.kpi.bonus,  val:B.format(totalBonus), cls:"red",                                                   help:"bonus"},
+    {lbl:T.kpi.roi,    val:pct(totalROI), cls: totalROI>=2?"green":(totalROI>=0?"orange":"red"),              help:"roi"},
+  ];
+  document.getElementById("kpis").innerHTML = items.map(i=>`
+    <div class="kpi ${i.cls||''}">
+      ${infoBtn(i.help)}
+      <div class="lbl">${i.lbl}</div>
+      <div class="val">${i.val}</div>
+    </div>`).join("");
+}
+
+function renderInsights(){
+  const T = t(); const B = brl(); const F = fmt();
+  const sortedByROI = [...DATA].sort((a,b)=>b.roi - a.roi);
+  const best  = sortedByROI[0];
+  // "worst" = lowest budget utilization (least engaged audience)
+  const sortedByUtil = [...DATA].sort((a,b)=>a.budgetUtil - b.budgetUtil);
+  const worst = sortedByUtil[0];
+  const totalCash = DATA.reduce((a,b)=>a+b.cash,0);
+  const totalBonus = DATA.reduce((a,b)=>a+b.bonus,0);
+  const totalROI = totalBonus ? (totalCash - totalBonus)/totalBonus : 0;
+  const items = [
+    `<span class="tag win">${T.tag.win}</span>${T.ins.win(best.code, pct(best.roi), F.format(best.trips), B.format(best.cash))}`,
+    `<span class="tag warn">${T.tag.warn}</span>${T.ins.warn(worst.code, F.format(worst.trips), pct(worst.budgetUtil), F.format(worst.codes_issued))}`,
+    `<span class="tag ok">${T.tag.ok}</span>${T.ins.ok(B.format(totalCash), B.format(totalBonus), pct(totalROI))}`,
+    `<span class="tag info">${T.tag.next}</span>${T.ins.next}`,
+  ];
+  document.getElementById("insightsList").innerHTML = items.map(i=>`<li>${i}</li>`).join("");
+}
+
+function renderTable(){
+  const T = t(); const F = fmt(); const B = brl();
+  const head = document.getElementById("tblHead");
+  head.innerHTML = T.tbl.head.map((h,i)=>`<th class="${i>=2?'num':''}">${h}</th>`).join("");
+
+  const tbody = document.querySelector("#tbl tbody");
+  const d = filtered();
+  const maxAct = Math.max(...d.map(x=>x.activations), 1);
+  const rowsHtml = d.map((r,i)=>{
+    const w = (r.activations/maxAct)*100;
+    const c = COLORS[i%COLORS.length];
+    const profitCls = r.profit >= 0 ? "pos" : "neg";
+    const roiCls    = r.roi    >= 0 ? "pos" : "neg";
+    return `<tr>
+      <td class="code">${r.code}</td>
+      <td>${r.campaign}</td>
+      <td class="num">${F.format(r.activations)}<div class="bar"><div style="width:${w}%; background:${c}"></div></div></td>
+      <td class="num">${(r.pctNew*100).toFixed(1)}%</td>
+      <td class="num">${F.format(r.trips)}</td>
+      <td class="num">${B.format(r.gmv)}</td>
+      <td class="num">${B.format(r.cash)}</td>
+      <td class="num">${B.format(r.bonus)}</td>
+      <td class="num ${profitCls}">${B.format(r.profit)}</td>
+      <td class="num ${roiCls}">${pct(r.roi)}</td>
+      <td class="num">${(r.budgetUtil*100).toFixed(2)}%</td>
+    </tr>`;
+  }).join("");
+
+  const sum=(k)=>d.reduce((a,b)=>a+b[k],0);
+  const tAct=sum("activations"), tGMV=sum("gmv"), tCash=sum("cash"), tBon=sum("bonus");
+  const tProf = tCash - tBon;
+  const tROI  = tBon ? tProf/tBon : 0;
+  const tBudget = sum("budget_max");
+  const tUtil = tBudget ? tBon/tBudget : 0;
+  const totalRow = `<tr class="totals">
+    <td>${T.tbl.total}</td><td></td>
+    <td class="num">${F.format(tAct)}</td>
+    <td class="num">${tAct? (sum("new_users")/tAct*100).toFixed(1) : 0}%</td>
+    <td class="num">${F.format(sum("trips"))}</td>
+    <td class="num">${B.format(tGMV)}</td>
+    <td class="num">${B.format(tCash)}</td>
+    <td class="num">${B.format(tBon)}</td>
+    <td class="num ${tProf>=0?'pos':'neg'}">${B.format(tProf)}</td>
+    <td class="num ${tROI>=0?'pos':'neg'}">${pct(tROI)}</td>
+    <td class="num">${(tUtil*100).toFixed(2)}%</td>
+  </tr>`;
+  tbody.innerHTML = rowsHtml + totalRow;
+}
+
+let chartObjs={};
+function destroy(n){ if(chartObjs[n]){ chartObjs[n].destroy(); delete chartObjs[n]; } }
+
+function baseOpts(){
+  return {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:"#94A3B8", boxWidth:10 }}},
+    scales:{
+      x:{ ticks:{ color:"#94A3B8" }, grid:{ color:"#334155" }},
+      y:{ ticks:{ color:"#94A3B8" }, grid:{ color:"#334155" }, beginAtZero:true }
+    }
+  };
+}
+
+function renderCharts(){
+  const T = t(); const B = brl();
+  const d = filtered();
+
+  destroy("gmv");
+  chartObjs.gmv = new Chart(document.getElementById("chGMV"), {
+    type:"bar",
+    data:{
+      labels:d.map(x=>x.code),
+      datasets:[
+        {label:T.chartDS.cash,  data:d.map(x=>x.cash),  backgroundColor:"#22C55E"},
+        {label:T.chartDS.bonus, data:d.map(x=>x.bonus), backgroundColor:"#EF4444"},
+      ]
+    },
+    options:{...baseOpts(), plugins:{...baseOpts().plugins,
+      tooltip:{ callbacks:{ label: ctx=>` ${ctx.dataset.label}: ${B.format(ctx.parsed.y)}` }}}}
+  });
+
+  destroy("roi");
+  chartObjs.roi = new Chart(document.getElementById("chROI"), {
+    type:"bar",
+    data:{
+      labels:d.map(x=>x.code),
+      datasets:[{
+        label:T.chartDS.roi,
+        data:d.map(x=>x.roi*100),
+        backgroundColor:d.map(x=>x.roi>=2?"#22C55E":(x.roi>=0?"#F59E0B":"#EF4444")),
+      }]
+    },
+    options:{...baseOpts(), indexAxis:"y", plugins:{ legend:{display:false},
+      tooltip:{ callbacks:{ label: ctx=>` ${T.chartDS.roi}: ${ctx.parsed.x.toFixed(0)}%` }}}}
+  });
+
+  destroy("act");
+  chartObjs.act = new Chart(document.getElementById("chActivations"), {
+    type:"bar",
+    data:{
+      labels:d.map(x=>x.code),
+      datasets:[
+        {label:T.chartDS.novos,  data:d.map(x=>x.new_users), backgroundColor:"#22C55E"},
+        {label:T.chartDS.ativos, data:d.map(x=>Math.max(0, x.activations - x.new_users)), backgroundColor:"#38BDF8"},
+      ]
+    },
+    options:{...baseOpts(), scales:{ x:{...baseOpts().scales.x, stacked:true}, y:{...baseOpts().scales.y, stacked:true}}}
+  });
+
+  destroy("mix");
+  chartObjs.mix = new Chart(document.getElementById("chMix"), {
+    type:"bar",
+    data:{
+      labels:d.map(x=>x.code),
+      datasets:[{
+        label:T.chartDS.util,
+        data:d.map(x=>x.budgetUtil*100),
+        backgroundColor:d.map(x=>x.budgetUtil>=0.05?"#22C55E":(x.budgetUtil>=0.01?"#F59E0B":"#EF4444")),
+      }]
+    },
+    options:{...baseOpts(), plugins:{ legend:{display:false},
+      tooltip:{ callbacks:{ label: ctx=>` ${T.chartDS.util}: ${ctx.parsed.y.toFixed(2)}% (bônus: ${B.format(d[ctx.dataIndex].bonus)} / máx: ${B.format(d[ctx.dataIndex].budget_max)})` }}}}
+  });
+}
+
+function renderPending(){
+  const T = t();
+  document.getElementById("t_pendTitle").textContent = T.pending.title;
+  document.getElementById("t_pendSub").textContent = T.pending.sub;
+  const cards = PENDING_CARDS[lang] || PENDING_CARDS.pt;
+  document.getElementById("pendingGrid").innerHTML = cards.map(c=>`
+    <div class="pcard">
+      <div class="status ${c.status}"></div>
+      <div class="title">${c.title}</div>
+      <div class="asker">${T.pending.askedBy}: <b>${c.asker}</b> · ${c.date}</div>
+      <div class="why">${c.why}</div>
+      <div class="need"><b>${T.pending.needLabel}:</b>${c.need}</div>
+    </div>`).join("");
+  document.getElementById("pendingLegend").innerHTML = T.pending.legend.map(i=>
+    `<div class="item"><span class="dot" style="background:${i.c==='red'?'#EF4444':i.c==='yellow'?'#F59E0B':'#22C55E'}"></span>${i.l}</div>`
+  ).join("");
+}
+
+function render(){ renderHeader(); renderFilters(); renderKPIs(); renderInsights(); renderTable(); renderCharts(); renderPending(); }
+
+// Lang switch wiring
+document.querySelectorAll("#langSwitch button").forEach(b=>{
+  b.addEventListener("click", ()=> setLang(b.dataset.lang));
+});
+
+render();
+</script>
+</body>
+</html>
